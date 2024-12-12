@@ -1,5 +1,5 @@
 # Import specific functions from preprocessing.py via the __init__.py setup
-from ppg_cleaner import zscore_normalization, min_max_normalization, rescale_signal
+from ppg_cleaner import zscore_normalization, min_max_normalization, rescale_signal, clip_signal
 
 # Test cases for the functions
 def test_zscore_normalization():
