@@ -75,61 +75,48 @@ def clip_signal(signal, lower_bound, upper_bound):
 
     return clipped_signal
 
-def remove_invalid_values(signal, replace_with='interpolation', secondary_signal=None):
+def remove_invalid_values(ppg_signal=None, abp_signal=None):
     """
-    Remove NaN and Inf values from the signal and optionally replace them.
-    If a secondary signal is provided, corresponding invalid indices are removed.
+    Remove NaN and infinite values from PPG and/or ABP signals, ensuring alignment if both are provided.
 
     Parameters:
-    - signal (list or np.array): The input signal containing numeric values.
-    - replace_with (str): Strategy to handle invalid values:
-        - 'interpolation': Replace using linear interpolation.
-        - 'zero': Replace with zero.
-        - 'mean': Replace with the mean of the valid values.
-        - 'remove': Remove the invalid values entirely.
-    - secondary_signal (list or np.array, optional): An additional signal where the same
-      invalid indices will be handled (removal only).
+    - ppg_signal: The PPG signal array (NumPy array), optional.
+    - abp_signal: The ABP signal array (NumPy array), optional.
 
     Returns:
-    - tuple:
-        - np.array: Cleaned primary signal with invalid values handled.
-        - np.array or None: Correspondingly cleaned secondary signal (if provided).
+    - cleaned_ppg: Cleaned PPG signal with invalid values removed (or None if not provided).
+    - cleaned_abp: Cleaned ABP signal with corresponding indices removed (or None if not provided).
     """
-    signal = np.array(signal)  # Ensure the input is a NumPy array
-    if secondary_signal is not None:
-        secondary_signal = np.array(secondary_signal)
+    if ppg_signal is None and abp_signal is None:
+        raise ValueError("At least one of 'ppg_signal' or 'abp_signal' must be provided.")
 
-    # Identify invalid values (NaN or Inf)
-    invalid_mask = np.isnan(signal) | np.isinf(signal)
+    if ppg_signal is not None:
+        ppg_signal = np.array(ppg_signal)  # Ensure it's a NumPy array
+    if abp_signal is not None:
+        abp_signal = np.array(abp_signal)  # Ensure it's a NumPy array
 
-    if not invalid_mask.any():
-        return signal, secondary_signal  # Return as-is if no invalid values
-
-    if replace_with == 'interpolation':
-        if secondary_signal is not None:
-            raise ValueError("Interpolation is not supported for secondary signals. Use 'remove'.")
-        valid_indices = ~invalid_mask
-        signal[invalid_mask] = np.interp(
-            np.flatnonzero(invalid_mask),
-            np.flatnonzero(valid_indices),
-            signal[valid_indices]
+    if ppg_signal is not None and abp_signal is not None:
+        # Create a combined mask for valid values in both signals
+        valid_mask = (
+            np.isfinite(ppg_signal) &  # PPG signal has no NaN or Inf
+            np.isfinite(abp_signal)    # ABP signal has no NaN or Inf
         )
-    elif replace_with == 'zero':
-        signal[invalid_mask] = 0
-        if secondary_signal is not None:
-            secondary_signal[invalid_mask] = 0
-    elif replace_with == 'mean':
-        signal[invalid_mask] = np.nanmean(signal[~np.isinf(signal)])
-        if secondary_signal is not None:
-            secondary_signal[invalid_mask] = np.nanmean(signal[~np.isinf(signal)])
-    elif replace_with == 'remove':
-        signal = signal[~invalid_mask]
-        if secondary_signal is not None:
-            secondary_signal = secondary_signal[~invalid_mask]
-    else:
-        raise ValueError("Invalid `replace_with` option. Use 'interpolation', 'zero', 'mean', or 'remove'.")
+        # Apply the mask to both signals
+        cleaned_ppg = ppg_signal[valid_mask]
+        cleaned_abp = abp_signal[valid_mask]
+        return cleaned_ppg, cleaned_abp
 
-    return signal, secondary_signal
+    if ppg_signal is not None:
+        # Clean only PPG signal
+        valid_mask = np.isfinite(ppg_signal)  # PPG signal has no NaN or Inf
+        cleaned_ppg = ppg_signal[valid_mask]
+        return cleaned_ppg, None
+
+    if abp_signal is not None:
+        # Clean only ABP signal
+        valid_mask = np.isfinite(abp_signal)  # ABP signal has no NaN or Inf
+        cleaned_abp = abp_signal[valid_mask]
+        return None, cleaned_abp
 
 def baseline_wander_removal(signal, fs=None, method='linear'):
     """
@@ -170,3 +157,26 @@ def downsample_signal(signal, original_fs, target_fs):
     downsampled_signal = resample(signal, num_samples)
 
     return downsampled_signal
+
+def remove_out_of_range_bp(ppg_signal, abp_signal, min_bp=40, max_bp=200):
+    """
+    Remove ABP values outside the range [min_bp, max_bp], and remove the corresponding PPG signal values.
+
+    Parameters:
+    - ppg_signal: The PPG signal array (NumPy array).
+    - abp_signal: The ABP signal array (NumPy array).
+    - min_bp: Minimum allowable blood pressure value (default: 40 mmHg).
+    - max_bp: Maximum allowable blood pressure value (default: 200 mmHg).
+
+    Returns:
+    - cleaned_ppg: Cleaned PPG signal with out-of-range values removed.
+    - cleaned_abp: Cleaned ABP signal with out-of-range values removed.
+    """
+    # Create a mask for ABP values within the valid range
+    valid_mask = (abp_signal >= min_bp) & (abp_signal <= max_bp)
+
+    # Apply the mask to both signals
+    cleaned_ppg = ppg_signal[valid_mask]
+    cleaned_abp = abp_signal[valid_mask]
+
+    return cleaned_ppg, cleaned_abp

@@ -1,17 +1,17 @@
 import numpy as np
 from ppg_cleaner.preprocessing import (
     remove_invalid_values,
-    clip_signal,
-    baseline_wander_removal
+    baseline_wander_removal,
+    remove_out_of_range_bp
 )
 from ppg_cleaner.filtering import bandpass_filter
 from ppg_cleaner.artifact_removal import hampel_filter
-from ppg_cleaner.alignment import extract_max_correlation_window
+from ppg_cleaner.alignment import find_peaks_and_max_correlation
 
 def combined_pipeline(ppg_signal, abp_signal, fs, 
                       lower_bound=40, upper_bound=200, 
                       bandpass_low=0.5, bandpass_high=8.0, 
-                      window_duration=2, hampel_window_size=10, hampel_threshold=3):
+                      segment_duration= 2, overlap=1, peak_distance=50, hampel_window_size=10, hampel_threshold=3):
     """
     A combined pipeline function to clean and preprocess PPG and ABP signals.
 
@@ -35,8 +35,7 @@ def combined_pipeline(ppg_signal, abp_signal, fs,
     ppg_signal, abp_signal = remove_invalid_values(ppg_signal, abp_signal)
 
     # Step 2: Clip the signals to physiological bounds
-    ppg_signal = clip_signal(ppg_signal, lower_bound=-np.inf, upper_bound=np.inf)  # PPG often doesn't need clipping
-    abp_signal = clip_signal(abp_signal, lower_bound=lower_bound, upper_bound=upper_bound)
+    ppg_signal, abp_signal = remove_out_of_range_bp(ppg_signal, abp_signal, lower_bound, upper_bound)
 
     # Step 3: Remove baseline wander using detrending
     ppg_signal = baseline_wander_removal(ppg_signal, fs)
@@ -51,6 +50,8 @@ def combined_pipeline(ppg_signal, abp_signal, fs,
     abp_signal = hampel_filter(abp_signal, hampel_window_size, hampel_threshold)
 
     # Step 6: Extract the window with the maximum correlation between PPG and ABP
-    cleaned_ppg, cleaned_abp = extract_max_correlation_window(ppg_signal, abp_signal, fs, duration=window_duration)
+    cleaned_ppg, cleaned_abp = find_peaks_and_max_correlation(
+                        ppg_signal, abp_signal, fs, segment_duration, overlap, peak_distance
+                    )
 
     return cleaned_ppg, cleaned_abp
