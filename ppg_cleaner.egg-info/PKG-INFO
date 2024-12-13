@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: ppg_cleaner
+Version: 0.1.0
+Summary: A library for cleaning and preprocessing PPG and ABP signals.
+Author: Bharath Subramanian
+Author-email: bsubramanian@ucdavis.edu
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: matplotlib
