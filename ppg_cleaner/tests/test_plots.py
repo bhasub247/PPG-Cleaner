@@ -5,7 +5,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 import numpy as np
 import wfdb
 import matplotlib.pyplot as plt
-from ppg_cleaner.ppg_cleaner.preprocessing import *  # Import all functions from your library
+from ppg_cleaner.preprocessing import *  # Import all functions from your library
 
 def fetch_signals(file_path, pn_dir, fs):
     """
